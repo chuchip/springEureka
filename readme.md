@@ -11,14 +11,14 @@ En este articulo voy a explicar como crear un servicio que al que llamaremos par
 Los programas utilizados serán estos:
 
 
-* **Proyecto**: capitales-service **Puerto:**: 8100
+* **Proyecto**: capitals-service **Puerto:**: 8100
 
-- **Proyecto**: paises-service **Puerto:**: 8000 y 8001
+- **Proyecto**: countries-service **Puerto:**: 8000 y 8001
 
-- **proyecto**: netflix-eureka-naming-server  **Puerto**: 8761 
+- **proyecto**: eureka-server  **Puerto**: 8761 
 
 
-El proyecto '**paises-service**' será el que tenga la base de datos con los datos de los diferentes países. Se lanzaran dos instancias del mismo servicio para que podamos comprobar como '**capitales-service**' hace una llamada a una instancia y luego a otra para balancear la carga.
+El proyecto '**countries-service**' será el que tenga la base de datos con los datos de los diferentes países. Se lanzaran dos instancias del mismo servicio para que podamos comprobar como '**capitals-service**' hace una llamada a una instancia y luego a otra para balancear la carga.
 
 1. ### **Creando un servidor Eureka**
 
@@ -29,7 +29,7 @@ Para ello crearemos un nuevo proyecto **Spring Boot** con tan solo  el *Starter*
 En este proyecto cambiaremos el fichero **application.properties** para que incluya las siguientes líneas:
 
 ```
-spring.application.name=netflix-eureka-naming-server
+spring.application.name=eureka-server
 server.port=8761
 
 eureka.client.register-with-eureka=false
@@ -64,7 +64,7 @@ En la misma pantalla se muestra el estado del servidor.
 
 Observar que lo normal es que tengamos varios servidores Eureka levantados. En nuestro ejemplo solo levantaremos uno, aunque eso nos será lo normal en producción.
 
-### 2. Creando 'paises-service' 
+### 2. Microservicio 'countries-service' 
 
 Ahora que tenemos nuestro servidor vamos a crear nuestro primer cliente. Para ello crearemos otro proyecto de **Spring Boot** con los siguientes *starters*  
 
@@ -76,7 +76,7 @@ Ahora que tenemos nuestro servidor vamos a crear nuestro primer cliente. Para el
 
 Como he comentado anteriormente, este microservicio es el que va a tener la base de datos y el que será consultado por 'capitales-service' para buscar las capitales de un país.
 
-Esta sencilla aplicación usara H2 para la persistencia de datos y solo tendrá un punto de entrada, en su raíz, donde se le mandara como parámetro el país a consultar, y devolverá un objeto con los datos del país solicitado y el puerto en el que esta escuchando el servicio.
+Esta sencilla aplicación usara H2 para la persistencia de datos y solo tendrá un punto de entrada, en su raíz, donde se le mandara como parámetro el país a consultar, y devolverá un objeto JSON con los datos del país solicitado y el puerto en el que esta escuchando el servicio.
 
 
 
@@ -99,9 +99,19 @@ spring.h2.console.enabled=true
 
 Como se puede ver, con el paramero **eureka.client.service-url.default-zone** especificamos donde esta el servidor Eureka. **Spring Boot** automáticamente al ver que tiene el paquete **Eureka Discovery** disponible intentara registrarse en su correspondiente servidor.
 
-En la siguiente captura de pantalla se puede ver como si lanzamos dos instancias de este programa, una en el puerto 8000 y otra en el puerto 8001, en **Eureka Server** podemos ver como se han registrado.
-
-![Servidor Eureka con dos instancias registradas](.\captura4.png)
+Para poder lanzar con **Eclipse** la segunda instancia de la aplicación **paises-service** en el puerto 8001, deberemos ir a la opción  `Run Configurations` en el menú `Run`y copiar la que Eclipse habra creado de **countries-service** una vez hayamos ejecutado la aplicación por primera vez. En la pestaña `Arguments` deberemos añadir el parámetro `--server.port=8001`
 
 
+
+![Configuracion Eclipse](.\captura4.png)
+
+En la siguiente captura de pantalla se puede ver como si lanzamos dos instancias de este programa, una en el puerto 8000 y otra en el puerto 8001, en **Eureka Server** podemos ver como se han registrado (Mi ordenador se llama ' port-chuchi' ;-) )
+
+![Servidor Eureka con dos instancias registradas](.\captura5.png)
+
+
+
+### 3. Microservicio 'capitals-service' 
+
+Este servicio es el que llamara al anterior para solicitar todos los datos de un país y mostrar solo la capital.
 
