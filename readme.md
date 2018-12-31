@@ -115,3 +115,107 @@ En la siguiente captura de pantalla se puede ver como si lanzamos dos instancias
 
 Este servicio es el que llamara al anterior para solicitar todos los datos de un país y mostrar solo la capital.
 
+Necesitaremos tener los siguientes *starters*
+
+- Eureka Discovery
+- Ribbon
+- Feign
+- Lombok
+- Web
+
+Ahora explicare que hace cada uno de ellos. 
+
+En primer lugar, como en el anterior servicio, en el fichero  `application.properties`tendremos el siguiente contenido:
+
+```
+spring.application.name=capitals-service
+eureka.client.service-url.default-zone=http://localhost:8761/eureka
+server.port=8100
+```
+
+Es decir, definimos el nombre de la aplicación, después especificamos donde esta el servidor Eureka donde nos debemos registrar y por fin el puerto donde escuchara el programa.
+
+* ##### Petición RESTFUL simple
+
+Para realizar una petición RESTFUL a `countries-service` la forma más simple seria usar la clase `RestTemplate`del paquete  `org.springframework.web.client`. Si escribimos  esto:
+
+```
+@GetMapping("/template/{country}")
+	public CapitalsBean getCountryUsingRestTemplate(@PathVariable String country) {
+		
+		Map<String, String> uriVariables = new HashMap<>();
+		uriVariables.put("country", country);		
+		
+		ResponseEntity<CapitalsBean> responseEntity = new RestTemplate().getForEntity(
+				"http://localhost:8000/{country}", 
+				CapitalsBean.class, 
+				uriVariables );
+		
+		CapitalsBean response = responseEntity.getBody();
+		
+		return response;
+	}
+```
+
+Como se ve, simplemente, metemos en un `hashmap` las variables que vamos a pasar en la petición, que en este caso es solo el parámetro `pais`, para después realizar crear un objeto `ResponseEntity` llamando a la función estática`RestTemplate.getForEntity()` pasando como parámetros, la URL que deseamos llamar, la clase donde debe dejar la respuesta de la petición REST y las variables pasadas en la petición. 
+
+Después,  capturamos el objeto `CapitalsBean`que tendremos en el *Body* del objeto `ResponseEntity`.
+
+Pero usando este método tenemos el problema de que debemos tener definido en nuestra clase la URL donde están las diferentes instancias del microservicio al que llamamos, además como se ve, tenemos que escribir mucho código para hacer una simple llamada. 
+
+* ##### Petición FEIGN simple
+
+Una manera más elegante de hacer esa llamada seria utilizando [Feign](https://cloud.spring.io/spring-cloud-netflix/multi/multi_spring-cloud-feign.html).  **Feign** es una herramienta de **Spring** que nos permite realizar llamadas más limpiamente usando llamadas declarativas.
+
+Para utilizar **Feign** debemos incluir la etiqueta **@EnableFeignClients** en nuestra clase principal, en nuestro ejemplo la ponemos en la clase `CapitalsServiceApplication`
+
+```
+@SpringBootApplication
+@EnableFeignClients("com.profesorp.capitalsservice")
+public class CapitalsServiceApplication {
+	public static void main(String[] args) {
+		SpringApplication.run(CapitalsServiceApplication.class, args);
+	}
+}
+```
+
+Si no pasamos ningún parámetro a la etiqueta **@EnableFeignClients** buscara clientes **Feign** en nuestro paquete principal, si le ponemos un valor solo buscara clientes en el paquete mandado. Así en este caso solo buscaría en el paquete `com.profesorp.capitalsservice`
+
+Ahora definimos nuestro cliente en el *interface* `CapitalsServiceProxy`
+
+```java
+@FeignClient(name="simpleFeign",url="http://localhost:8000/")
+public interface CapitalsServiceProxySimple {	
+	@GetMapping("/{country}")
+	public CapitalsBean getCountry(@PathVariable("country") String country);
+}
+```
+
+Lo primero es etiquetar la clase con **@FeignClient** especificando la URL donde esta el servidor REST que queremos llamar.  Prestar atención al hecho de que ponemos la dirección base, en este caso solo el nombre del host y su puerto `localhost:8000`. El parámetro `name`debe ser puesto pero no es importante su contenido.
+
+Para usar este cliente simplemente pondríamos este código en nuestro programa
+
+```java
+@Autowired
+private CapitalsServiceProxySimple simpleProxy;
+@GetMapping("/feign/{country}")
+public CapitalsBean getCountryUsingFeign(@PathVariable String country) {
+	CapitalsBean response = simpleProxy.getCountry(country);		
+	return response;
+}
+```
+
+Usamos el inyector de dependencias de **Spring** para crear un objeto **CapitalsServiceProxySimple** y después simplemente llamamos a su función `getCountry()`
+
+Mucho más limpio, ¿verdad?. Suponiendo que nuestro servidor REST tuviera muchos puntos de entrada nos ahorraríamos muchísimo de teclear, además de tener el código mucho más limpio.
+
+Pero aún tenemos el problema de que la dirección del servidor RESTFUL esta escrita en nuestro código lo cual nos hace imposible poder llegar a las diferentes instancias del mismo servicio  y nuestro microservicio no será verdaderamente escalable.
+
+* ##### Petición FEIGN usando el servidor Eureka
+
+Para resolver el problema en vez de  poner la dirección del servidor, pondremos el nombre de la aplicación y **Spring Boot** se encargara de  llamar el servidor Eureka, pidiéndole la dirección donde esta ese servicio .
+
+
+
+En la clase `CapitalsServiceApplication`deberemos incluir las siguientes etiquetas:
+
