@@ -10,5 +10,5 @@ import org.springframework.web.bind.annotation.PathVariable;
 @RibbonClient(name="countries-service")
 public interface CapitalsServiceProxy {
 	@GetMapping("/{country}")
-	public CapitalsBean getPais(@PathVariable("country") String pais);
+	public CapitalsBean getCountry(@PathVariable("country") String country);
 }

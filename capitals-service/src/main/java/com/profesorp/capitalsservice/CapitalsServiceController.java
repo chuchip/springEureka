@@ -21,23 +21,22 @@ public class CapitalsServiceController {
 	@Autowired
 	private CapitalsServiceProxy proxy;
 	
-	@Autowired
-	private CapitalsServiceProxySimple simpleProxy;
 	
-	@GetMapping("/{pais}")
-	public CapitalsBean getPais(@PathVariable String pais) {
-		CapitalsBean response = proxy.getPais(pais);
+	
+	@GetMapping("/{country}")
+	public CapitalsBean getCountry(@PathVariable String country) {
+		CapitalsBean response = proxy.getCountry(country);
 		logger.info("CapitalesService -> {} ",response);
 		return response;
 	}
-	@GetMapping("/template/{pais}")
-	public CapitalsBean getTemplatePais(@PathVariable String pais) {
+	@GetMapping("/template/{country}")
+	public CapitalsBean getCountryUsingRestTemplate(@PathVariable String country) {
 		
 		Map<String, String> uriVariables = new HashMap<>();
-		uriVariables.put("pais", pais);		
+		uriVariables.put("country", country);		
 		
 		ResponseEntity<CapitalsBean> responseEntity = new RestTemplate().getForEntity(
-				"http://localhost:8000/{pais}", 
+				"http://localhost:8000/{country}", 
 				CapitalsBean.class, 
 				uriVariables );
 		
@@ -46,9 +45,13 @@ public class CapitalsServiceController {
 		return response;
 	}
 	
-	@GetMapping("/feign/{pais}")
-	public CapitalsBean getFeignPais(@PathVariable String pais) {
-		CapitalsBean response = simpleProxy.getPais(pais);		
+	@Autowired
+	private CapitalsServiceProxySimple simpleProxy;
+	@GetMapping("/feign/{country}")
+	public CapitalsBean getCountryUsingFeign(@PathVariable String country) {
+		CapitalsBean response = simpleProxy.getCountry(country);		
 		return response;
 	}
+	
+	
 }

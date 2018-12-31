@@ -105,11 +105,15 @@ Para poder lanzar con **Eclipse** la segunda instancia de la aplicación **paise
 
 ![Configuracion Eclipse](.\captura4.png)
 
-En la siguiente captura de pantalla se puede ver como si lanzamos dos instancias de este programa, una en el puerto 8000 y otra en el puerto 8001, en **Eureka Server** podemos ver como se han registrado (Mi ordenador se llama ' port-chuchi' ;-) )
+En la siguiente captura de pantalla se puede ver como si lanzamos dos instancias de este programa, una en el puerto 8000 y otra en el puerto 8001, en **Eureka Server** podemos ver como se han registrado  las diferentes instancias. El nombre que se han registrado y por el que el se podrán buscar es el nombre de la aplicación como se ha declarado en la variable `spring.application.name` del fichero `application.properties`
+
+
 
 ![Servidor Eureka con dos instancias registradas](.\captura5.png)
 
+Así vemos que la aplicación `COUNTRIES-SERVICE`tiene dos instancias, levantadas ambas en el host  `port-chuchi`una en el puerto 8000 y otra en el puerto 8001.
 
+*Mi ordenador se llama `port-chuchi`*
 
 ### 3. Microservicio 'capitals-service' 
 
@@ -211,9 +215,22 @@ Mucho más limpio, ¿verdad?. Suponiendo que nuestro servidor REST tuviera mucho
 
 Pero aún tenemos el problema de que la dirección del servidor RESTFUL esta escrita en nuestro código lo cual nos hace imposible poder llegar a las diferentes instancias del mismo servicio  y nuestro microservicio no será verdaderamente escalable.
 
-* ##### Petición FEIGN usando el servidor Eureka
+* ##### Petición FEIGN usando el servidor Eureka y Ribbon
 
 Para resolver el problema en vez de  poner la dirección del servidor, pondremos el nombre de la aplicación y **Spring Boot** se encargara de  llamar el servidor Eureka, pidiéndole la dirección donde esta ese servicio .
+
+Para ello crearíamos un interface **Feign**  de esta manera
+
+```java
+@FeignClient(name="countries-service")
+@RibbonClient(name="countries-service")
+public interface CapitalsServiceProxy {
+	@GetMapping("/{country}")
+	public CapitalsBean getCountry(@PathVariable("country") String country);
+}
+```
+
+Como se puede ver aquí no especificamos la dirección del servicio, simplemente ponemos el nombre. En este caso `countries-service`  que es como esta registrada la aplicación en el servidor Eureka.
 
 
 
