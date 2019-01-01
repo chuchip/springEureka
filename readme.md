@@ -122,7 +122,6 @@ Este servicio es el que llamara al anterior para solicitar todos los datos de un
 Necesitaremos tener los siguientes *starters*
 
 - Eureka Discovery
-- Ribbon
 - Feign
 - Lombok
 - Web
@@ -215,7 +214,7 @@ Mucho más limpio, ¿verdad?. Suponiendo que nuestro servidor REST tuviera mucho
 
 Pero aún tenemos el problema de que la dirección del servidor RESTFUL esta escrita en nuestro código lo cual nos hace imposible poder llegar a las diferentes instancias del mismo servicio  y nuestro microservicio no será verdaderamente escalable.
 
-* ##### Petición FEIGN usando el servidor Eureka y Ribbon
+* ##### Petición FEIGN usando el servidor Eureka 
 
 Para resolver el problema en vez de  poner la dirección del servidor, pondremos el nombre de la aplicación y **Spring Boot** se encargara de  llamar el servidor Eureka, pidiéndole la dirección donde esta ese servicio .
 
@@ -223,7 +222,6 @@ Para ello crearíamos un interface **Feign**  de esta manera
 
 ```java
 @FeignClient(name="countries-service")
-@RibbonClient(name="countries-service")
 public interface CapitalsServiceProxy {
 	@GetMapping("/{country}")
 	public CapitalsBean getCountry(@PathVariable("country") String country);
@@ -231,6 +229,54 @@ public interface CapitalsServiceProxy {
 ```
 
 Como se puede ver aquí no especificamos la dirección del servicio, simplemente ponemos el nombre. En este caso `countries-service`  que es como esta registrada la aplicación en el servidor Eureka.
+
+Ahora cada petición que se haga ira balanceándose  de una instancia a otra. De tal manera que la primera petición ira a la del puerto 8000 y la siguiente a la del puerto 8001.
+
+![Respondiendo en el puerto 8000](.\captura6.png)
+
+![Respondiendo en el puerto 8001](.\captura7.png)
+
+De esta manera nuestra aplicación ya utilizara todas las instancias del servicio automáticamente.
+
+* ##### Configurando RIBBON 
+
+El paquete **Feign** usa el paquete [Ribbon](https://cloud.spring.io/spring-cloud-netflix/multi/multi_spring-cloud-ribbon.html) por debajo y realmente es este es el que se encarga de balancear las peticiones. Por defecto **Ribbon**  usara la regla  *RoundRobinRule*. Con esta regla escogerá secuencialmente cada uno de las instancias que **Eureka** le muestre levantadas, sin tener en cuenta el tiempo  que a cada instancia le cuesta responder.  
+
+Si deseamos que use alguna de las otras tres disponibles por defecto o incluso una regla que nosotros definamos deberemos crear una clase de configuración para **Ribbon**, como la siguiente:
+
+```java
+import org.springframework.context.annotation.Bean;
+import com.netflix.loadbalancer.IPing;
+import com.netflix.loadbalancer.IRule;
+import com.netflix.loadbalancer.NoOpPing;
+import com.netflix.loadbalancer.WeightedResponseTimeRule;
+public class RibbonConfiguration {
+	 @Bean
+	 public IPing ribbonPing() {
+	        return new NoOpPing();
+	 }
+	 
+	 @Bean	
+	 public IRule ribbonRule() {
+	        return new WeightedResponseTimeRule();
+	 }
+}
+```
+
+En la función `ribbonRule`()devolveremos el objeto `WeightedResponseTimeRule` si queremos que la lógica de balanceo tenga en cuenta el tiempo de respuesta de cada instancia.
+
+Ahora, para especificar que queremos usar esta clase para configurar **Ribbon** añadiremos la etiqueta 
+
+`@RibbonClient(name="countries-service", configuration = RibbonConfiguration.class)`en nuestra clase `CapitalsServiceApplication`, donde especificamos que 
+
+```
+@SpringBootApplication
+@EnableFeignClients 
+@RibbonClient(name="countries-service", configuration = RibbonConfiguration.class)
+public class CapitalsServiceApplication {
+....
+}
+```
 
 
 

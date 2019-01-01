@@ -1,6 +1,8 @@
 package com.profesorp.countriesservice;
 
 
+import java.util.HashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +15,7 @@ import com.profesorp.countriesservice.entities.Countries;
 
 @RestController
 public class CountriesServiceController {
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	HashMap<Integer, Integer> timePort=new HashMap<>();
 	
 	@Autowired
 	private CountriesRepository countriesRepository;
@@ -24,9 +26,25 @@ public class CountriesServiceController {
 	@GetMapping("/{country}")
 	public Countries getCountry(@PathVariable String country) {
 		Countries  countryBean = countriesRepository.findById(country).orElseThrow(() -> new NotFoundException("Country: "+country+" not found"));
-		countryBean.setPort( Integer.parseInt(environment.getProperty("local.server.port")) );
-		logger.info("CountriesServiceControllerCountriesServiceController -> {} ",countryBean);
+		int port= Integer.parseInt(environment.getProperty("local.server.port")) ;
+		countryBean.setPort(port);
+		int time=timePort.getOrDefault(port, 0);
+		if (time>=0)
+		{
+			try {
+				Thread.sleep(time);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 		return countryBean;		
 	}		
+	@GetMapping("/time/{time}")
+	public int getTime(@PathVariable int time) {
+		int port=Integer.parseInt(environment.getProperty("local.server.port")) ;
+		timePort.put(port, time);
+		return time;
+	}		
+	
 	
 }
