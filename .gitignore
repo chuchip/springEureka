@@ -1,6 +1,7 @@
 /target/
 !.mvn/wrapper/maven-wrapper.jar
 .metadata/
+.recomenders/
 
 ### STS ###
 .apt_generated
