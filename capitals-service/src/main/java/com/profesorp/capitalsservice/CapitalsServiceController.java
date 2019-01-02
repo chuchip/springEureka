@@ -20,15 +20,23 @@ public class CapitalsServiceController {
 	
 	@Autowired
 	private CapitalsServiceProxy proxy;
-	
-	
+	HashMap<Integer, Integer> htPuerto=new HashMap<>();	
 	
 	@GetMapping("/{country}")
 	public CapitalsBean getCountry(@PathVariable String country) {
 		CapitalsBean response = proxy.getCountry(country);
+		htPuerto.put(response.getPort(), htPuerto.getOrDefault(response.getPort(),0)+1);
 		logger.info("CapitalesService -> {} ",response);
 		return response;
 	}
+	
+	@GetMapping("/puertos")
+	public String getCountryUsingFeign() {
+		StringBuffer response=new StringBuffer();
+		htPuerto.forEach((k,v) -> response.append(" Puerto: "+k+" Valor: "+v));
+		return response.toString();
+	}
+	
 	@GetMapping("/template/{country}")
 	public CapitalsBean getCountryUsingRestTemplate(@PathVariable String country) {
 		
