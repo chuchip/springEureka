@@ -1,6 +1,6 @@
-En esta *clase* hablare de como crear **microservicios** distribuidos en **Spring Boot** utilizando el paquete   [Spring Cloud NetFlix](http://spring.io/projects/spring-cloud-netflix).
+En esta *clase* hablare de como crear **microservicios** distribuidos en **Spring Boot** utilizando las facilidades que nos da el paquete   [Spring Cloud NetFlix](http://spring.io/projects/spring-cloud-netflix).
 
-Cualquier microservicio que se precie debe poder localizar las diferentes instancias de otro servicio del que dependa sin tener sus direcciones en ningún lugar del código.
+Cualquier microservicio debe poder localizar las diferentes instancias de otro servicio del que dependa sin tener sus direcciones definidas en el código.
 
 En el caso de que un microservicio deba acceder a otro lo ideal seria que de alguna manera pudiera saber en que direcciones esta las instancias de ese otro microservicio funcionando, pues lo más común es que se levanten diferentes instancias dependiendo de la carga. 
 
@@ -17,12 +17,13 @@ Los programas utilizados serán estos:
 
 - **proyecto**: eureka-server  **Puerto**: 8761 
 
+El proyecto '**countries-service**' será el que tenga la base de datos con los datos de los diferentes países. Se lanzaran dos instancias del mismo servicio para que podamos comprobar como '**capitals-service**' hace una llamada a una instancia y luego,  balanceando la carga.
 
-El proyecto '**countries-service**' será el que tenga la base de datos con los datos de los diferentes países. Se lanzaran dos instancias del mismo servicio para que podamos comprobar como '**capitals-service**' hace una llamada a una instancia y luego a otra para balancear la carga.
+El código de ejemplo de este articulo esta en [GitHub](https://github.com/chuchip/springEureka).
 
 1. ### **Creando un servidor Eureka**
 
-Lo primero que necesitamos es tener un lugar donde todos los microservicios se registren cuando se inicialicen. Ese servicio es el que a su vez se consultara cuando queramos localizar las diferentes instancias de un microservicio. En esta *ejemplo* vamos a utilizar **Eureka Server** el cual es muy fácil de crear.
+Lo primero que necesitamos es tener un lugar donde todos los microservicios se registren cuando se inicialicen. Ese servicio es el que a su vez se consultara cuando queramos localizar las diferentes instancias. En esta ejemplo vamos a utilizar **Eureka Server** el cual es muy fácil de crear.
 
 Para ello crearemos un nuevo proyecto **Spring Boot** con tan solo  el *Starter* **Eureka Server**.
 
@@ -76,11 +77,7 @@ Ahora que tenemos nuestro servidor vamos a crear nuestro primer cliente. Para el
 
 Como he comentado anteriormente, este microservicio es el que va a tener la base de datos y el que será consultado por 'capitales-service' para buscar las capitales de un país.
 
-Esta sencilla aplicación usara H2 para la persistencia de datos y solo tendrá un punto de entrada, en su raíz, donde se le mandara como parámetro el país a consultar, y devolverá un objeto JSON con los datos del país solicitado y el puerto en el que esta escuchando el servicio.
 
-
-
-![Llamada a paises-service](.\captura3.png)
 
 
 
@@ -88,7 +85,7 @@ Lo destacable de este proyecto esta en el fichero `application.properties` de **
 
 ```
 spring.application.name=paises-service
-eureka.client.service-url.default-zone=http://localhost:8761/eureka
+eureka.client.serviceUrl.defaultZone=http://localhost:8761/eureka
 server.port=8000
 # Configuacion JPA
 spring.jpa.show-sql=true
@@ -115,9 +112,29 @@ Así vemos que la aplicación `COUNTRIES-SERVICE`tiene dos instancias, levantada
 
 *Mi ordenador se llama `port-chuchi`*
 
+Esta sencilla aplicación usara H2 para la persistencia de datos teniendo una simple tabla llamada `countries`con los datos de los países, a la que accederemos por JPA. La estructura de la tabla esta definida en `com.profesorp.countriesservice.entities.Countries.java`
+
+En la clase `CapitalsServiceController`se definen los siguientes puntos de entrada.
+
+1. Petición GET. **/{country}**
+
+- **Recibe**: Código de Pais. ('es','eu','en'....)
+
+- **Devolverá** un objeto `CapitalsBean`
+
+![Llamada a paises-service](.\captura3.PNG)
+
+2. Petición GET. **/time/{time}**
+
+Establece el tiempo que la entrada **/{country}** realizara una pausa antes de devolver el resultado.
+
+
+
 ### 3. Microservicio 'capitals-service' 
 
-Este servicio es el que llamara al anterior para solicitar todos los datos de un país y mostrar solo la capital.
+Este servicio es el que llamara al anterior para solicitar todos los datos de un país, pero mostrara solo la capital, el puerto del servicio al que realizo la llamada y el nombre del país.
+
+![Llamada a capitals-service](.\captura9.PNG)
 
 Necesitaremos tener los siguientes *starters*
 
@@ -126,51 +143,45 @@ Necesitaremos tener los siguientes *starters*
 - Lombok
 - Web
 
-Ahora explicare que hace cada uno de ellos. 
-
 En primer lugar, como en el anterior servicio, en el fichero  `application.properties`tendremos el siguiente contenido:
 
 ```
 spring.application.name=capitals-service
-eureka.client.service-url.default-zone=http://localhost:8761/eureka
+eureka.client.serviceUrl.defaultZone=http://localhost:8761/eureka
 server.port=8100
 ```
 
 Es decir, definimos el nombre de la aplicación, después especificamos donde esta el servidor Eureka donde nos debemos registrar y por fin el puerto donde escuchara el programa.
 
-* ##### Petición RESTFUL simple
+* ##### Utilizando RestTemplate.
 
-Para realizar una petición RESTFUL a `countries-service` la forma más simple seria usar la clase `RestTemplate`del paquete  `org.springframework.web.client`. Si escribimos  esto:
+Para realizar una petición RESTFUL a `countries-service` la forma más simple seria usar la clase `RestTemplate`del paquete  `org.springframework.web.client`. 
 
-```
+```java
 @GetMapping("/template/{country}")
-	public CapitalsBean getCountryUsingRestTemplate(@PathVariable String country) {
-		
-		Map<String, String> uriVariables = new HashMap<>();
-		uriVariables.put("country", country);		
-		
-		ResponseEntity<CapitalsBean> responseEntity = new RestTemplate().getForEntity(
-				"http://localhost:8000/{country}", 
-				CapitalsBean.class, 
-				uriVariables );
-		
-		CapitalsBean response = responseEntity.getBody();
-		
-		return response;
-	}
+public CapitalsBean getCountryUsingRestTemplate(@PathVariable String country) {	
+	Map<String, String> uriVariables = new HashMap<>();
+	uriVariables.put("country", country);				
+	ResponseEntity<CapitalsBean> responseEntity = new RestTemplate().getForEntity(
+			"http://localhost:8000/{country}", 
+			CapitalsBean.class, 
+			uriVariables );		
+	CapitalsBean response = responseEntity.getBody();		
+	return response;
+}
 ```
 
 Como se ve, simplemente, metemos en un `hashmap` las variables que vamos a pasar en la petición, que en este caso es solo el parámetro `pais`, para después realizar crear un objeto `ResponseEntity` llamando a la función estática`RestTemplate.getForEntity()` pasando como parámetros, la URL que deseamos llamar, la clase donde debe dejar la respuesta de la petición REST y las variables pasadas en la petición. 
 
 Después,  capturamos el objeto `CapitalsBean`que tendremos en el *Body* del objeto `ResponseEntity`.
 
-Pero usando este método tenemos el problema de que debemos tener definido en nuestra clase la URL donde están las diferentes instancias del microservicio al que llamamos, además como se ve, tenemos que escribir mucho código para hacer una simple llamada. 
+Pero usando este método tenemos el problema de que debemos tener definido en nuestro programa las URLs donde están las diferentes instancias del microservicio al que llamamos, además como se ve, tenemos que escribir mucho código para hacer una simple llamada. 
 
 * ##### Petición FEIGN simple
 
-Una manera más elegante de hacer esa llamada seria utilizando [Feign](https://cloud.spring.io/spring-cloud-netflix/multi/multi_spring-cloud-feign.html).  **Feign** es una herramienta de **Spring** que nos permite realizar llamadas más limpiamente usando llamadas declarativas.
+Una manera más elegante de hacer esa llamada seria utilizando [Feign](https://cloud.spring.io/spring-cloud-netflix/multi/multi_spring-cloud-feign.html).  **Feign** es una herramienta de **Spring** que nos permite realizar llamadas usando funciones declarativas.
 
-Para utilizar **Feign** debemos incluir la etiqueta **@EnableFeignClients** en nuestra clase principal, en nuestro ejemplo la ponemos en la clase `CapitalsServiceApplication`
+Para utilizar **Feign** debemos incluir la etiqueta **@EnableFeignClients** en nuestra clase principal. En nuestro ejemplo la ponemos en la clase `CapitalsServiceApplication`
 
 ```
 @SpringBootApplication
@@ -182,9 +193,9 @@ public class CapitalsServiceApplication {
 }
 ```
 
-Si no pasamos ningún parámetro a la etiqueta **@EnableFeignClients** buscara clientes **Feign** en nuestro paquete principal, si le ponemos un valor solo buscara clientes en el paquete mandado. Así en este caso solo buscaría en el paquete `com.profesorp.capitalsservice`
+Si no pasamos ningún parámetro a la etiqueta **@EnableFeignClients** buscara clientes **Feign** en nuestro paquete principal, si le ponemos un valor solo buscara clientes en el paquete mandado. Así en el ejemplo solo buscaría en el paquete `com.profesorp.capitalsservice`
 
-Ahora definimos nuestro cliente en el *interface* `CapitalsServiceProxy`
+Ahora definimos el cliente *Feing* con el *interface* `CapitalsServiceProxy`
 
 ```java
 @FeignClient(name="simpleFeign",url="http://localhost:8000/")
@@ -195,6 +206,8 @@ public interface CapitalsServiceProxySimple {
 ```
 
 Lo primero es etiquetar la clase con **@FeignClient** especificando la URL donde esta el servidor REST que queremos llamar.  Prestar atención al hecho de que ponemos la dirección base, en este caso solo el nombre del host y su puerto `localhost:8000`. El parámetro `name`debe ser puesto pero no es importante su contenido.
+
+Después definiremos las diferentes entradas que queremos tener disponibles. En nuestro caso solo hay una definida, pero podríamos incluir la llamada a  **/time/{time}** .
 
 Para usar este cliente simplemente pondríamos este código en nuestro programa
 
@@ -208,9 +221,9 @@ public CapitalsBean getCountryUsingFeign(@PathVariable String country) {
 }
 ```
 
-Usamos el inyector de dependencias de **Spring** para crear un objeto **CapitalsServiceProxySimple** y después simplemente llamamos a su función `getCountry()`
+Usamos el inyector de dependencias de **Spring** para crear un objeto **CapitalsServiceProxySimple** y después simplemente llamamos a la función `getCountry() `del interface.
 
-Mucho más limpio, ¿verdad?. Suponiendo que nuestro servidor REST tuviera muchos puntos de entrada nos ahorraríamos muchísimo de teclear, además de tener el código mucho más limpio.
+Mucho más limpio, ¿verdad?. Suponiendo que nuestro servidor REST tuviera muchos puntos de entrada nos ahorraríamos muchísimo de teclear, además de tener un código mucho más limpio.
 
 Pero aún tenemos el problema de que la dirección del servidor RESTFUL esta escrita en nuestro código lo cual nos hace imposible poder llegar a las diferentes instancias del mismo servicio  y nuestro microservicio no será verdaderamente escalable.
 
@@ -254,8 +267,7 @@ public class RibbonConfiguration {
 	 @Bean
 	 public IPing ribbonPing() {
 	        return new NoOpPing();
-	 }
-	 
+	 }	 
 	 @Bean	
 	 public IRule ribbonRule() {
 	        return new WeightedResponseTimeRule();
@@ -267,7 +279,7 @@ En la función `ribbonRule`()devolveremos el objeto `WeightedResponseTimeRule` s
 
 Ahora, para especificar que queremos usar esta clase para configurar **Ribbon** añadiremos la etiqueta 
 
-`@RibbonClient(name="countries-service", configuration = RibbonConfiguration.class)`en nuestra clase `CapitalsServiceApplication`, donde especificamos que 
+`@RibbonClient(name="countries-service", configuration = RibbonConfiguration.class)`en nuestra clase `CapitalsServiceApplication`
 
 ```
 @SpringBootApplication
@@ -278,7 +290,38 @@ public class CapitalsServiceApplication {
 }
 ```
 
+Para comprobar como funciona el balanceo por peso, estableceremos una pausa de 10 milisegundos al servidor del puerto 8001 y una de 300 al servidor del puerto 8000, usando la llamada a **/time/{time}** del servicio `countries-service`
 
+```
+> curl localhost:8001/time/10
+> curl localhost:8000/time/300
+```
 
-En la clase `CapitalsServiceApplication`deberemos incluir las siguientes etiquetas:
+Suponiendo que estamos trabajando en **Linux**, usando **Bash** haremos 100 peticiones.
+
+````
+CONTADOR=0; while [ $CONTADOR -lt 100 ]; do 
+	curl http://localhost:8100/es
+	let CONTADOR=CONTADOR+1
+done
+````
+
+ Al cabo de un tiempo podremos ver las peticiones que se han realizado a cada puerto llamando a [http://localhost:8100/puertos](http://localhost:8100/puertos)
+
+![Balanceo de peticiones](.\captura8.png)
+
+Como se puede ver hay muchas más peticiones al puerto 8001 que al puerto 8000, lo cual es normal teniendo en cuenta que el puerto 8000 tiene un retraso de 300 milisegundos, mientras que el 8001 solo de 10.
+
+Para terminar este articulo comentar que **Ribbon** se puede usar sin tener **Feign** utilizando directamente *RestTemplate* pero el estudio de ese caso lo dejare para otra ocasión.
+
+Mencionar, además que para realizar pruebas de balanceo he utilizado **Docker** por lo cual  en el código fuente  de [GitHub](https://github.com/chuchip/springEureka), veremos que en el fichero `application.properties`del proyecto `countries-service` están estas líneas:
+
+```
+eureka.client.serviceUrl.defaultZone:http://eurekaserver:8761/eureka
+server.port=${SERVER_PORT}
+```
+
+En vez de las mostradas anteriormente. Esto esta puesto así para poder definir dinámicamente cuando se lanza el contenedor **docker** , con la variable de entorno **SERVER_PORT**  el puerto donde debe escuchar cada instancia.
+
+Gracias por leer este articulo y hasta la próxima lección ;-)
 
