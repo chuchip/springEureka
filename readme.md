@@ -1,3 +1,5 @@
+**La ultima versión de esta documentación esta en: http://www.profesor-p.com/2019/01/03/microservicios-distribuidos-con-eureka/**
+
 En esta *clase* hablare de como crear **microservicios** distribuidos en **Spring Boot** utilizando las facilidades que nos da el paquete   [Spring Cloud NetFlix](http://spring.io/projects/spring-cloud-netflix).
 
 Cualquier microservicio debe poder localizar las diferentes instancias de otro servicio del que dependa sin tener sus direcciones definidas en el código.
